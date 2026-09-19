@@ -1,0 +1,18 @@
+name: kyc_vision_env
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.11
+  - fastapi=0.111.0
+  - uvicorn=0.30.1
+  - pydantic=2.8.2
+  - opencv=4.10.0
+  - ultralytics=8.2.0  # YOLOv8
+  - easyocr=1.7.1
+  - insightface=0.7.3
+  - onnxruntime-gpu
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1

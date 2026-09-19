@@ -1,3 +1,4 @@
+import torch
 import cv2
 import numpy as np
 import easyocr
@@ -5,11 +6,16 @@ from insightface.app import FaceAnalysis
 
 class KYCVisionEngine:
     def __init__(self):
+        # Dynamically detect hardware for container portability
+        use_gpu = torch.cuda.is_available()
+        
         # Initialize OCR for Persian/Arabic and English digits
-        self.reader = easyocr.Reader(['fa', 'en'], gpu=False) 
+        self.reader = easyocr.Reader(['fa', 'en'], gpu=use_gpu) 
+        
         # Initialize ArcFace for biometric similarity
         self.face_app = FaceAnalysis(name='buffalo_l')
-        self.face_app.prepare(ctx_id=0, det_size=(640, 640))
+        ctx_id = 0 if use_gpu else -1
+        self.face_app.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
     def detect_moire_fft(self, image_bytes: bytes) -> dict:
         """Uses Fast Fourier Transform (FFT) to detect digital screens (Moiré patterns)."""
@@ -20,16 +26,12 @@ class KYCVisionEngine:
         fshift = np.fft.fftshift(f)
         magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1)
         
-        # Calculate mean high-frequency energy
         h, w = img.shape
         cy, cx = h // 2, w // 2
-        # Mask out the low-frequency center (radius 30)
         mask = np.ones((h, w), np.uint8)
         cv2.circle(mask, (cx, cy), 30, 0, -1)
         
         high_freq_energy = np.mean(magnitude_spectrum * mask)
-        
-        # Threshold tuned for standard smartphone captures of LCD/OLED screens
         is_spoof = bool(high_freq_energy > 145.0)
         
         return {
@@ -60,16 +62,15 @@ class KYCVisionEngine:
         faces_selfie = self.face_app.get(selfie_img)
         
         if not faces_id or not faces_selfie:
-            return {"match": False, "similarity_score": 0.0, "error": "Face not detected in one or both images."}
+            return {"match": False, "similarity_score": 0.0, "error": "Face not detected."}
             
         emb_id = faces_id[0].embedding
         emb_selfie = faces_selfie[0].embedding
         
-        # Cosine Similarity
         similarity = np.dot(emb_id, emb_selfie) / (np.linalg.norm(emb_id) * np.linalg.norm(emb_selfie))
         score = float(similarity)
         
         return {
-            "match": score > 0.60, # Standard threshold for ArcFace
+            "match": score > 0.60, 
             "similarity_score": round(score, 4)
         }

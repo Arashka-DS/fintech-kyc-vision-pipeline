@@ -37,3 +37,16 @@ services:
       - DB_HOST=postgres_kyc
     depends_on:
       - postgres_kyc
+  
+  kyc_frontend:
+    image: python:3.11-slim
+    container_name: kyc_frontend
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app/frontend
+      - ./requirements.txt:/app/requirements.txt
+    working_dir: /app
+    command: bash -c "pip install streamlit requests && streamlit run frontend/app.py --server.address 0.0.0.0"
+    depends_on:
+      - kyc_api

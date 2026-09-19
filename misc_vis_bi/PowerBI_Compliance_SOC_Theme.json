@@ -1,0 +1,23 @@
+{
+    "name": "FinTech Security & Trust Dark",
+    "dataColors": ["#00E5FF", "#2979FF", "#FF1744", "#FFEA00", "#76FF03", "#FFFFFF"],
+    "background": "#0A0E17",
+    "foreground": "#E2E8F0",
+    "tableAccent": "#2979FF",
+    "visualStyles": {
+        "*": {
+            "*": {
+                "background": [{ "show": true, "color": { "solid": { "color": "#111827" } }, "transparency": 10 }],
+                "border": [{ "show": true, "color": { "solid": { "color": "#1F2937" } }, "radius": 8 }],
+                "visualHeader": [{ "foreground": { "solid": { "color": "#9CA3AF" } } }],
+                "dropShadow": [{ "show": true, "color": { "solid": { "color": "#000000" } }, "position": "Outer", "blur": 10, "opacity": 40 }]
+            }
+        },
+        "card": {
+            "*": {
+                "labels": [{ "color": { "solid": { "color": "#00E5FF" } }, "fontSize": 30, "fontFamily": "Consolas" }],
+                "categoryAxis": [{ "show": true, "color": { "solid": { "color": "#6B7280" } } }]
+            }
+        }
+    }
+}

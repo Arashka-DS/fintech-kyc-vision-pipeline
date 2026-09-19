@@ -16,3 +16,5 @@ dependencies:
   - torchvision
   - torchaudio
   - pytorch-cuda=12.1
+  - psycopg2-binary==2.9.9
+  - piexif==1.1.3

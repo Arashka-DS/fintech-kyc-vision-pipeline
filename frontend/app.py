@@ -1,70 +1,65 @@
 import streamlit as st
 import requests
-from PIL import Image
 
-st.set_page_config(page_title="FinTech KYC Portal", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="KYC & AML Compliance Portal", layout="wide")
 
-st.markdown("""
-    <style>
-    .metric-card { background-color: #111827; padding: 20px; border-radius: 10px; border: 1px solid #1F2937; }
-    .status-approved { color: #00E5FF; font-weight: bold; font-size: 24px;}
-    .status-rejected { color: #FF1744; font-weight: bold; font-size: 24px;}
-    </style>
-""", unsafe_allow_html=True)
+API_URL = "http://kyc_api:8000"
 
-st.title("🛡️ Automated KYC & Identity Verification")
-st.markdown("Upload a National ID (Cart Melli) and a live selfie to evaluate spoofing, OCR extraction, and biometric similarity.")
+st.title("🛡️ KYC Biometric Onboarding Portal")
+st.markdown("Upload a physical National ID card and a live selfie. The system checks for digital screen spoofing (FFT), extracts & validates the National Code (Modulo 11), and verifies biometric similarity.")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("1. National ID Upload")
-    id_file = st.file_uploader("Upload ID Document", type=['jpg', 'jpeg', 'png'], key="id")
+    st.subheader("1. Upload National ID Card")
+    id_upload = st.file_uploader("Upload ID (Front)", type=["jpg", "jpeg", "png"])
 
 with col2:
-    st.subheader("2. Live Selfie Upload")
-    selfie_file = st.file_uploader("Upload User Selfie", type=['jpg', 'jpeg', 'png'], key="selfie")
+    st.subheader("2. Upload Live Selfie")
+    selfie_upload = st.file_uploader("Upload Selfie", type=["jpg", "jpeg", "png"])
 
-if id_file and selfie_file:
-    # Display the uploaded images
-    img_col1, img_col2 = st.columns(2)
-    img_col1.image(Image.open(id_file), caption="Document Scan", use_column_width=True)
-    img_col2.image(Image.open(selfie_file), caption="Biometric Selfie", use_column_width=True)
-
-    if st.button("Run Compliance Engine", type="primary", use_container_width=True):
-        with st.spinner("Analyzing pixels, extracting embeddings, and checking EXIF data..."):
+if id_upload and selfie_upload:
+    st.divider()
+    
+    if st.button("Run KYC Verification Pipeline", type="primary"):
+        with st.spinner("Analyzing FFT frequencies, running OCR, and extracting facial embeddings..."):
             try:
-                # Reset file pointers
-                id_file.seek(0)
-                selfie_file.seek(0)
-                
+                # Prepare multipart form data
                 files = {
-                    "id_card": (id_file.name, id_file.getvalue(), "image/jpeg"),
-                    "selfie": (selfie_file.name, selfie_file.getvalue(), "image/jpeg")
+                    "id_card": (id_upload.name, id_upload.getvalue(), id_upload.type),
+                    "selfie": (selfie_upload.name, selfie_upload.getvalue(), selfie_upload.type)
                 }
                 
-                res = requests.post("http://kyc_api:8000/verify-identity", files=files)
-                res.raise_for_status()
-                data = res.json()
+                response = requests.post(f"{API_URL}/verify-identity", files=files)
+                data = response.json()
                 
-                st.divider()
-                st.subheader("Engine Decision Matrix")
+                # Render Results
+                status = data.get("status")
                 
-                # Top Level Decision
-                if data['status'] == "APPROVED":
-                    st.markdown(f"<div class='status-approved'>✅ {data['status']}</div>", unsafe_allow_html=True)
+                if status == "APPROVED":
+                    st.success(f"✅ **APPROVED:** Identity Verified. National ID: `{data.get('national_id')}`")
                 else:
-                    st.markdown(f"<div class='status-rejected'>🚨 {data['status']}: {data.get('reason', 'Verification Failed')}</div>", unsafe_allow_html=True)
+                    st.error(f"🚨 **REJECTED:** {data.get('message')}")
                 
-                # Metrics Row
-                m1, m2, m3, m4 = st.columns(4)
+                # Render Telemetry
+                st.subheader("Pipeline Telemetry")
+                m1, m2, m3 = st.columns(3)
                 
-                m1.metric("Extracted National Code", data.get('national_code', 'FAILED'))
-                m2.metric("Face Similarity", f"{data.get('face_similarity_score', 0.0) * 100:.1f}%")
-                m3.metric("Image Clarity", data.get('image_clarity_score', 0.0))
+                liveness = data.get("liveness", {})
+                biometrics = data.get("biometrics", {})
                 
-                spoof_color = "normal" if not data.get('is_spoof') else "inverse"
-                m4.metric("Spoof Detected", str(data.get('is_spoof', False)), delta_color=spoof_color)
+                # Liveness FFT Metric
+                fft_score = liveness.get('fft_high_freq_energy', 0)
+                fft_color = "normal" if fft_score < 145.0 else "inverse"
+                m1.metric("Moiré FFT Energy", f"{fft_score}", delta="Threshold: 145", delta_color=fft_color)
+                
+                # Biometric Metric
+                sim_score = biometrics.get('similarity_score', 0)
+                sim_color = "normal" if sim_score >= 0.60 else "inverse"
+                m2.metric("ArcFace Similarity", f"{sim_score}", delta="Threshold: 0.60", delta_color=sim_color)
+                
+                # Status Enum
+                m3.metric("System Verdict", status)
 
             except Exception as e:
-                st.error(f"Engine connection failed: {e}")
+                st.error(f"Connection Error: Is the FastAPI backend running? Details: {e}")

@@ -4,21 +4,15 @@ import easyocr
 import insightface
 from ultralytics import YOLO
 from insightface.app import FaceAnalysis
+from io import BytesIO
+import piexif
 
 class KYCVisionEngine:
     def __init__(self):
-        # 1. Initialize YOLOv8 (Pre-trained on document boundaries)
-        # Note: In production, you would train a lightweight YOLOv8n specifically on Cart Melli/Bank Cards
         self.yolo_model = YOLO("yolov8n.pt") 
-        
-        # 2. Initialize EasyOCR (Persian + English for IBANs)
         self.reader = easyocr.Reader(['fa', 'en'], gpu=True)
-        
-        # 3. Initialize InsightFace (ArcFace for facial embeddings)
         self.face_app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider'])
         self.face_app.prepare(ctx_id=0, det_size=(640, 640))
-
-        # Persian to English digit normalization map
         self.persian_digits = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
 
     def check_image_quality(self, image_cv, threshold=100.0):
@@ -70,27 +64,63 @@ class KYCVisionEngine:
         similarity = np.dot(emb_id, emb_selfie)
         return float(similarity), similarity > threshold
 
+    def detect_screen_spoof_fft(self, image_cv, threshold=0.15) -> bool:
+        """
+        Uses Fast Fourier Transform (FFT) to detect Moiré patterns.
+        Digital screens emit high-frequency periodic noise that physical cards do not.
+        """
+        gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+        f_transform = np.fft.fft2(gray)
+        f_shift = np.fft.fftshift(f_transform)
+        magnitude_spectrum = 20 * np.log(np.abs(f_shift) + 1e-8)
+        
+        # Calculate ratio of high-frequency energy to total energy
+        rows, cols = gray.shape
+        crow, ccol = rows // 2, cols // 2
+        r = 30 # Mask radius
+        
+        # Zero out the low-frequency center
+        f_shift[crow-r:crow+r, ccol-r:ccol+r] = 0
+        high_freq_energy = np.sum(np.abs(f_shift))
+        total_energy = np.sum(np.abs(f_transform))
+        
+        ratio = high_freq_energy / (total_energy + 1e-8)
+        return ratio > threshold # True = Screen detected (Spoof)
+
+    def check_exif_tampering(self, image_bytes) -> bool:
+        """Checks metadata for software signatures (e.g., Adobe Photoshop)."""
+        try:
+            exif_dict = piexif.load(image_bytes)
+            software = exif_dict["0th"].get(piexif.ImageIFD.Software, b"").decode("utf-8").lower()
+            if "photoshop" in software or "gimp" in software:
+                return True
+        except Exception:
+            pass # No EXIF data or unreadable
+        return False
+
     def process_kyc_payload(self, id_img_bytes, selfie_img_bytes):
-        # Decode bytes to OpenCV arrays
+        # 1. Software Tamper Check (EXIF)
+        if self.check_exif_tampering(id_img_bytes):
+            return {"status": "REJECTED", "reason": "Software modification detected in EXIF data.", "is_spoof": True}
+
         id_img = cv2.imdecode(np.frombuffer(id_img_bytes, np.uint8), cv2.IMREAD_COLOR)
         selfie_img = cv2.imdecode(np.frombuffer(selfie_img_bytes, np.uint8), cv2.IMREAD_COLOR)
 
-        # 1. Quality Check
+        # 2. Presentation Attack Detection (Liveness/Screen check)
+        if self.detect_screen_spoof_fft(id_img):
+            return {"status": "REJECTED", "reason": "Digital screen detected (Moiré pattern). Physical ID required.", "is_spoof": True}
+
+        # 3. Quality Check
         blur_score, is_sharp = self.check_image_quality(id_img)
         if not is_sharp:
-            return {"status": "REJECTED", "reason": f"ID image too blurry (Score: {blur_score:.2f})"}
-
-        # 2. YOLO Document Cropping (Simulation)
-        # In a real scenario, use YOLO bounding boxes to crop. 
-        # Here we assume the full image if YOLO doesn't detect a specific sub-boundary.
-        cropped_id = id_img 
+            return {"status": "REJECTED", "reason": f"Image too blurry (Score: {blur_score:.2f})", "is_spoof": False}
         
-        # 3. OCR & Deterministic Validation
-        national_code, is_valid_id = self.extract_text_and_validate(cropped_id)
+        # 4. OCR & Deterministic Validation
+        national_code, is_valid_id = self.extract_text_and_validate(id_img)
         if not is_valid_id:
-            return {"status": "REJECTED", "reason": "Could not extract a valid 10-digit National Code."}
+            return {"status": "MANUAL_REVIEW", "reason": "Could not validate 10-digit National Code.", "is_spoof": False}
 
-        # 4. Facial Similarity
+        # 5. Facial Similarity
         sim_score, is_match = self.face_match(id_img, selfie_img)
 
         return {
@@ -98,5 +128,7 @@ class KYCVisionEngine:
             "national_code": national_code,
             "face_similarity_score": round(sim_score, 4),
             "is_face_match": is_match,
-            "image_clarity_score": round(blur_score, 2)
+            "image_clarity_score": round(blur_score, 2),
+            "is_spoof": False,
+            "reason": "Success" if is_match else "Face mismatch"
         }

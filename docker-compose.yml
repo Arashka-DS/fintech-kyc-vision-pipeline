@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres_kyc:
+    image: postgres:15-alpine
+    container_name: kyc_audit_db
+    environment:
+      POSTGRES_USER: kyc_admin
+      POSTGRES_PASSWORD: kyc_password
+      POSTGRES_DB: kyc_ledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase_kyc
+    ports:
+      - "3000:3000"
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=kyc_ledger
+      - MB_DB_PORT=5432
+      - MB_DB_USER=kyc_admin
+      - MB_DB_PASS=kyc_password
+      - MB_DB_HOST=postgres_kyc
+    depends_on:
+      - postgres_kyc
+
+  kyc_api:
+    build: .
+    container_name: kyc_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=postgres_kyc
+    depends_on:
+      - postgres_kyc

@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y \
 
 COPY environment.yml .
 RUN micromamba install -y -n base -f environment.yml && \
-    micromamba clean --all --yes
+    micromamba clean --all --yes && \
+    find /opt/conda/ -name "*.a" -delete && \
+    rm -rf /root/.cache/pip /tmp/*
 
 COPY . .
 

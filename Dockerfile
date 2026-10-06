@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:1.5.1-bullseye-slim
+FROM mambaorg/micromamba:2.9.0-debian12-slim
 
 WORKDIR /app
 

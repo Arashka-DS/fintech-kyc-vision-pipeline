@@ -20,6 +20,13 @@ services:
   kyc_api:
     build: .
     container_name: kyc_fastapi
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     ports:
       - "8000:8000"
     environment:
@@ -29,6 +36,8 @@ services:
       - DB_NAME=kyc_warehouse
     volumes:
       - ./src:/app/src
+      - ./model_cache/insightface:/root/.insightface
+      - ./model_cache/easyocr:/root/.EasyOCR
     command: micromamba run -n base uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       postgres_kyc:

@@ -32,7 +32,7 @@ class KYCVisionEngine:
         cv2.circle(mask, (cx, cy), 30, 0, -1)
         
         high_freq_energy = np.mean(magnitude_spectrum * mask)
-        is_spoof = bool(high_freq_energy > 145.0)
+        is_spoof = bool(high_freq_energy > 155.0)
         
         return {
             "is_screen_spoof": is_spoof,
@@ -71,6 +71,6 @@ class KYCVisionEngine:
         score = float(similarity)
         
         return {
-            "match": score > 0.60, 
+            "match": score > 0.45, 
             "similarity_score": round(score, 4)
         }

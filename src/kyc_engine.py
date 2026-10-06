@@ -28,31 +28,25 @@ class KYCVisionEngine:
         
         h, w = img.shape
         cy, cx = h // 2, w // 2
-        mask = np.ones((h, w), np.uint8)
-        cv2.circle(mask, (cx, cy), 30, 0, -1)
         
-        high_freq_energy = np.mean(magnitude_spectrum * mask)
-        is_spoof = bool(high_freq_energy > 155.0)
+        # Mask out the low frequencies (the center)
+        high_freq_mask = np.ones((h, w), np.uint8)
+        cv2.circle(high_freq_mask, (cx, cy), 30, 0, -1)
+        
+        # Calculate energy metrics
+        total_energy = np.mean(magnitude_spectrum)
+        high_freq_energy = np.mean(magnitude_spectrum * high_freq_mask)
+        
+        # Create a lighting-invariant ratio
+        ratio = float(high_freq_energy / (total_energy + 1e-7))
+        
+        # Standard ratio threshold for screen detection
+        is_spoof = bool(ratio > 0.85) 
         
         return {
             "is_screen_spoof": is_spoof,
-            "fft_high_freq_energy": round(float(high_freq_energy), 2)
+            "fft_high_freq_energy": round(ratio, 2)
         }
-
-    def validate_iranian_national_id(self, national_code: str) -> bool:
-        """Validates the 10-digit Iranian National Code using Modulo 11."""
-        if not national_code.isdigit() or len(national_code) != 10:
-            return False
-            
-        check_digit = int(national_code[9])
-        sum_val = sum(int(national_code[i]) * (10 - i) for i in range(9))
-        remainder = sum_val % 11
-        
-        if remainder < 2:
-            return check_digit == remainder
-        else:
-            return check_digit == (11 - remainder)
-
     def compare_faces(self, id_bytes: bytes, selfie_bytes: bytes) -> dict:
         """Calculates 512-D Cosine Similarity between the ID face and live selfie."""
         id_img = cv2.imdecode(np.frombuffer(id_bytes, np.uint8), cv2.IMREAD_COLOR)

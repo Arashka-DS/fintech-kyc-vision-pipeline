@@ -48,15 +48,15 @@ if id_upload and selfie_upload:
                 liveness = data.get("liveness", {})
                 biometrics = data.get("biometrics", {})
                 
-                # Liveness FFT Metric
+                # Liveness FFT Metric (Updated for Ratio)
                 fft_score = liveness.get('fft_high_freq_energy', 0)
-                fft_color = "normal" if fft_score < 145.0 else "inverse"
-                m1.metric("Moiré FFT Energy", f"{fft_score}", delta="Threshold: 145", delta_color=fft_color)
+                fft_color = "normal" if fft_score <= 0.85 else "inverse"
+                m1.metric("Moiré FFT Ratio", f"{fft_score:.2f}", delta="Threshold: 0.85", delta_color=fft_color)
                 
-                # Biometric Metric
+                # Biometric Metric (Updated for ID-to-Selfie Standard)
                 sim_score = biometrics.get('similarity_score', 0)
-                sim_color = "normal" if sim_score >= 0.60 else "inverse"
-                m2.metric("ArcFace Similarity", f"{sim_score}", delta="Threshold: 0.60", delta_color=sim_color)
+                sim_color = "normal" if sim_score >= 0.45 else "inverse"
+                m2.metric("ArcFace Similarity", f"{sim_score:.4f}", delta="Threshold: 0.45", delta_color=sim_color)
                 
                 # Status Enum
                 m3.metric("System Verdict", status)

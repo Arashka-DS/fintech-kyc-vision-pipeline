@@ -38,7 +38,7 @@ services:
     build: .
     container_name: kyc_streamlit
     ports:
-      - "8501:8501"
+      - "9501:8501"
     environment:
       - API_URL=http://kyc_api:8000
     volumes:

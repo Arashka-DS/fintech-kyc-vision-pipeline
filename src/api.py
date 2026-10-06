@@ -19,18 +19,7 @@ def log_audit_to_db(national_id: str, status: str, fft_score: float, sim_score: 
         )
         cursor = conn.cursor()
         
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS kyc_audit_log (
-                audit_id SERIAL PRIMARY KEY,
-                national_id VARCHAR(20),
-                status VARCHAR(50),
-                fft_liveness_score NUMERIC(8, 2),
-                face_similarity_score NUMERIC(5, 4),
-                message TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        
+        # Insert directly into the table created by Docker's init.sql
         cursor.execute("""
             INSERT INTO kyc_audit_log (national_id, status, fft_liveness_score, face_similarity_score, message)
             VALUES (%s, %s, %s, %s, %s)
@@ -40,7 +29,7 @@ def log_audit_to_db(national_id: str, status: str, fft_score: float, sim_score: 
         cursor.close()
         conn.close()
     except Exception as e:
-        print(f"Database Logging Error: {e}")
+        print(f"Database Logging Error: {e}", flush=True)
 
 @app.post("/verify-identity")
 async def verify_identity(background_tasks: BackgroundTasks, id_card: UploadFile = File(...), selfie: UploadFile = File(...)):

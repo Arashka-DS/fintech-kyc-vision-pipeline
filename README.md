@@ -20,6 +20,6 @@ A production-grade multimodal computer vision pipeline designed to automate Know
    ```
    (Note: The build process uses `micromamba` to cleanly install heavy PyTorch and OpenCV dependencies).
 2. **Access the Streamlit Inspection Portal:**
-    Navigate to `http://localhost:8501` to upload an ID card and a selfie. The UI will render the FFT spoofing metrics and facial similarity scores in real-time.
+    Navigate to `http://localhost:7501` to upload an ID card and a selfie. The UI will render the FFT spoofing metrics and facial similarity scores in real-time.
 3. **Access Operational BI:**
     Open Metabase at `http://localhost:3000` to monitor the SOC manual review queue and spoofing alerts.
